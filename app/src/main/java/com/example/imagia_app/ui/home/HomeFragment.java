@@ -1,61 +1,44 @@
 package com.example.imagia_app.ui.home;
 
+import android.content.ContextWrapper;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.lifecycle.LifecycleOwner;
 
 import com.example.imagia_app.R;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 
 public class HomeFragment extends Fragment {
-    /*
-    private FragmentHomeBinding binding;
-
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             ViewGroup container, Bundle savedInstanceState) {
-        HomeViewModel homeViewModel =
-                new ViewModelProvider(this).get(HomeViewModel.class);
-
-        binding = FragmentHomeBinding.inflate(inflater, container, false);
-        View root = binding.getRoot();
-        /*
-        final TextView textView = binding.textHome;
-        homeViewModel.getText().observe(getViewLifecycleOwner(), textView::setText);
-        */
-    /*
-        return root;
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        binding = null;
-    }
-    */
     private PreviewView previewView;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private ImageCapture imageCapture;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
         previewView = view.findViewById(R.id.previewView);
@@ -64,7 +47,13 @@ public class HomeFragment extends Fragment {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                bindCameraUseCases(cameraProvider);
+                bindImageAnalysis(cameraProvider);
+
+                if (getArguments() != null) {
+                    if (getArguments().getBoolean("isDoubleTapped", false)) {
+                        captureImage();
+                    }
+                }
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }
@@ -72,32 +61,53 @@ public class HomeFragment extends Fragment {
 
         return view;
     }
+    private void captureImage() {
+        // Configurem opcions per a la captura (p. ex., format, qualitat, etc.)
+        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(getOutputFile()).build();
+        // Capturem la imatge
+        imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                // Obtenim la ruta de l'arxiu de la imatge
+                String imagePath = getOutputFile().getAbsolutePath();
 
-    private void bindCameraUseCases(@NonNull ProcessCameraProvider cameraProvider) {
-        Preview preview = new Preview.Builder().build();
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_BACK)
-                .build();
+                // Notifiquem a l'usuari que la imatge s'ha desat amb èxit
+                Toast.makeText(requireContext(), "La imtage s'ha desat amb èxit!", Toast.LENGTH_SHORT).show();
+                Log.i("INFO", "Ruta de la imatge: " + imagePath);
+            }
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                // Notifiquem a l'usuari que hi ha hagut un error en capturar la imatge
+                Toast.makeText(requireContext(), "Error en capturar la imatge", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+    // Creem el fitxer on es desarà la imatge
+    private File getOutputFile() {
+        File directory = new ContextWrapper(requireContext()).getFilesDir();
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        String fileName = "IMG_" + timeStamp + ".jpg";
+        return new File(directory, fileName);
+    }
+    /*
+    Vinculem l'ImageAnalyzer al proveïdor de la càmara creada en el mètode onCreate
+    i està atent a possibles canvis en la rotació de la càmara
+    */
+    private void bindImageAnalysis(@NonNull ProcessCameraProvider cameraProvider) {
+        ImageCapture.Builder builder = new ImageCapture.Builder();
+        imageCapture = builder.build();
 
         ImageAnalysis imageAnalysis =
                 new ImageAnalysis.Builder()
                         .setTargetResolution(new Size(1280, 720))
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
-        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(requireContext()), new ImageAnalysis.Analyzer() {
-            @Override
-            public void analyze(@NonNull ImageProxy image) {
-                // Add your image analysis code here
-                image.close();
-            }
-        });
+        imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(requireContext()), ImageProxy::close);
 
-        // Unbind any previously bound use cases before binding new ones
-        cameraProvider.unbindAll();
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-        // Bind the preview and image analysis use cases to the camera lifecycle
-        cameraProvider.bindToLifecycle((LifecycleOwner) requireActivity(), cameraSelector, preview, imageAnalysis);
+        CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
+        cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis, imageCapture);
     }
 }
