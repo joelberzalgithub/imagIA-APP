@@ -70,10 +70,29 @@ public class HomeFragment extends Fragment {
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 // Obtenim la ruta de l'arxiu de la imatge
                 String imagePath = getOutputFile().getAbsolutePath();
-
-                // Notifiquem a l'usuari que la imatge s'ha desat amb èxit
-                Toast.makeText(requireContext(), "La imtage s'ha desat amb èxit!", Toast.LENGTH_SHORT).show();
                 Log.i("INFO", "Ruta de la imatge: " + imagePath);
+
+                // Convertim la ruta de l'arxiu de la imatge en un objecte tipus File
+                File imageFile = new File(imagePath);
+                Log.i("INFO", imageFile.toString());
+                /*
+                // Obtenim una llista de bytes de l'arxiu de la imatge
+                byte[] imageBytes = new byte[(int) imageFile.length()];
+                Log.i("INFO", Arrays.toString(imageBytes));
+
+                // Llegim l'arxiu de la imatge
+                try {
+                    FileInputStream fis = new FileInputStream(imageFile);
+                    fis.read(imageBytes);
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                Log.i("INFO", Arrays.toString(imageBytes));
+                */
+                // Notifiquem a l'usuari que la imatge s'ha desat amb èxit
+                Toast.makeText(requireContext(), "La imatge s'ha desat amb èxit!", Toast.LENGTH_SHORT).show();
             }
             @Override
             public void onError(@NonNull ImageCaptureException exception) {
