@@ -9,6 +9,7 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.widget.Toast;
 
 import com.example.imagia_app.ui.home.HomeFragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -72,6 +73,7 @@ public class MainActivity extends AppCompatActivity {
 
                         if (speed > SHAKE_THRESHOLD) {
                             isDoubleTapped = !isDoubleTapped;
+                            Toast.makeText(MainActivity.this, "Has fet un Double Tapp!", Toast.LENGTH_SHORT).show();
                         }
                         lastX = x;
                         lastY = y;
