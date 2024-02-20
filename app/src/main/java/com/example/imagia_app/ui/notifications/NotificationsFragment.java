@@ -29,8 +29,8 @@ public class NotificationsFragment extends Fragment {
         editTextNom = view.findViewById(R.id.editTextNom);
         editTextTfn = view.findViewById(R.id.editTextTfn);
         editTextCodi = view.findViewById(R.id.editTextCodi);
-        Button registerButton = view.findViewById(R.id.registerButton);
 
+        Button registerButton = view.findViewById(R.id.registerButton);
         registerButton.setOnClickListener(v -> {
             if (editTextEmail.getText().toString().trim().isEmpty() ||
                     editTextNom.getText().toString().trim().isEmpty() ||

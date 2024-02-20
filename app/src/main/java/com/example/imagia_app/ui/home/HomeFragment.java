@@ -2,6 +2,7 @@ package com.example.imagia_app.ui.home;
 
 import android.content.ContextWrapper;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -49,9 +50,10 @@ import okhttp3.ResponseBody;
 import okio.Buffer;
 import okio.BufferedSource;
 
-public class HomeFragment extends Fragment {
+public class HomeFragment extends Fragment implements TextToSpeech.OnInitListener {
     private PreviewView previewView;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private TextToSpeech textToSpeech;
     private ImageCapture imageCapture;
     private static final String urlNodeJsImatge = "http://192.168.17.139:3000/api/maria/image";
 
@@ -78,8 +80,17 @@ public class HomeFragment extends Fragment {
             }
         }, ContextCompat.getMainExecutor(requireContext()));
 
+        textToSpeech = new TextToSpeech(requireContext(), this);
         return view;
     }
+
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            textToSpeech.setLanguage(Locale.US);
+        }
+    }
+
     private void captureImage() {
         // Configurem opcions per a la captura (p. ex., format, qualitat, etc.)
         ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(getOutputFile()).build();
@@ -94,12 +105,13 @@ public class HomeFragment extends Fragment {
                 // Convertim la ruta de l'arxiu de la imatge en un objecte tipus File
                 File imageFile = new File(imagePath);
                 Log.i("INFO", imageFile.toString());
+
                 // Notifiquem a l'usuari que la imatge s'ha desat amb èxit
                 Toast.makeText(requireContext(), "La imatge s'ha desat amb èxit!", Toast.LENGTH_SHORT).show();
                 List<File> imatges = new ArrayList<>();
                 imatges.add(imageFile);
 
-                // Funcion para hacer llamada a la API
+                // Cridem a l'API
                 callToNodeJS(imatges);
             }
             @Override
@@ -109,6 +121,7 @@ public class HomeFragment extends Fragment {
             }
         });
     }
+
     // Creem el fitxer on es desarà la imatge
     private File getOutputFile() {
         File directory = new ContextWrapper(requireContext()).getFilesDir();
@@ -116,6 +129,7 @@ public class HomeFragment extends Fragment {
         String fileName = "IMG_" + timeStamp + ".jpg";
         return new File(directory, fileName);
     }
+
     /*
     Vinculem l'ImageAnalyzer al proveïdor de la càmara creada en el mètode onCreate
     i està atent a possibles canvis en la rotació de la càmara
@@ -141,68 +155,64 @@ public class HomeFragment extends Fragment {
     private void callToNodeJS(List<File> imageFiles) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
 
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                OkHttpClient client = new OkHttpClient.Builder()
-                        .build();
+        executor.execute(() -> {
+            /*
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .build();
 
-                MultipartBody.Builder multipartBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
+            MultipartBody.Builder multipartBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
 
-                for (File file : imageFiles) {
-                    multipartBuilder.addFormDataPart("file", file.getName(),
-                            RequestBody.create(file, MediaType.parse("application/octet-stream")));
-                }
-
-                multipartBuilder.addFormDataPart("prompt", "Please describe both images briefly")
-                        .addFormDataPart("token", "123456789");
-
-                RequestBody body = multipartBuilder.build();
-
-                Request request = new Request.Builder()
-                        .url(urlNodeJsImatge)
-                        .method("POST", body)
-                        .build();
-
-                try {
-                    // Execute the request
-                    Response response = client.newCall(request).execute();
-                    if (!response.isSuccessful()) {
-                        throw new IOException("Unexpected code " + response);
-                    }
-
-                    // Handle response as needed
-                    ResponseBody responseBody = response.body();
-                    if (responseBody != null) {
-                        BufferedSource source = responseBody.source();
-                        Buffer buffer = new Buffer();
-                        long bytesRead;
-                        StringBuilder completeResponse = new StringBuilder();
-                        while ((bytesRead = source.read(buffer, 8192)) != -1) {
-                            // Process the chunk of data here
-                            String chunkString = buffer.readUtf8();
-                            if (source.exhausted()) {
-                                JSONObject jsonObject = new JSONObject(chunkString);
-                                Log.i("json", jsonObject.getString("message"));
-                            } else {
-                                completeResponse.append(chunkString);
-                            }
-                            Log.i("chunk", chunkString);
-                        }
-
-                        // Don't forget to close the response body when you're done with it
-                        responseBody.close();
-                        //Log.i("mensage final", String.valueOf(completeResponse));
-                        // JOEEEL
-                        // JOEEEEEL
-                        // LEE ESTO ===>>>>>>>>
-                        String test = "In the image, a large cow is hanging upside down from a wooden beam. In the second image, there's an animal lying on the side of a wall and another one hanging off a piece of wood with its belly facing the camera. The third image features two cows, one in the foreground and another further back, both appearing to be standing near a wall and possibly interacting with each other.";
-                        // LEE ESTO ===>>>>>>>>
-                    }
-                } catch (IOException | JSONException e) {
-                    throw new RuntimeException(e);
-                }
+            for (File file : imageFiles) {
+                multipartBuilder.addFormDataPart("file", file.getName(),
+                        RequestBody.create(file, MediaType.parse("application/octet-stream")));
             }
+
+            multipartBuilder.addFormDataPart("prompt", "Please describe both images briefly")
+                    .addFormDataPart("token", "123456789");
+
+            RequestBody body = multipartBuilder.build();
+
+            Request request = new Request.Builder()
+                    .url(urlNodeJsImatge)
+                    .method("POST", body)
+                    .build();
+
+            try {
+                // Executem la petició
+                Response response = client.newCall(request).execute();
+                if (!response.isSuccessful()) {
+                    throw new IOException("Unexpected code " + response);
+                }
+
+                // Gestionem la resposta segons sigui necessari
+                ResponseBody responseBody = response.body();
+                if (responseBody != null) {
+                    BufferedSource source = responseBody.source();
+                    Buffer buffer = new Buffer();
+                    long bytesRead;
+                    StringBuilder completeResponse = new StringBuilder();
+                    while ((bytesRead = source.read(buffer, 8192)) != -1) {
+                        // Process the chunk of data here
+                        String chunkString = buffer.readUtf8();
+                        if (source.exhausted()) {
+                            JSONObject jsonObject = new JSONObject(chunkString);
+                            Log.i("Json", jsonObject.getString("message"));
+                        } else {
+                            completeResponse.append(chunkString);
+                        }
+                        Log.i("chunk", chunkString);
+                    }
+
+                    // Tanquem el cos de la resposta quan haguem acabat de fer-lo servir
+                    responseBody.close();
+                    // Log.i("Missatge final", String.valueOf(completeResponse));
+                }
+            } catch (IOException | JSONException e) {
+                throw new RuntimeException(e);
+            }
+            */
+            String test = "In the image, a large cow is hanging upside down from a wooden beam. In the second image, there's an animal lying on the side of a wall and another one hanging off a piece of wood with its belly facing the camera. The third image features two cows, one in the foreground and another further back, both appearing to be standing near a wall and possibly interacting with each other.";
+            textToSpeech.speak(test, TextToSpeech.QUEUE_FLUSH, null, null);
         });
     }
 }
