@@ -27,7 +27,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="110dp"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="50dp"
         android:layout_marginEnd="110dp"
         android:text="Registre d'usuari"
         android:textSize="24sp"
@@ -109,36 +109,9 @@
         android:layout_marginEnd="80dp"
         android:ems="10"
         android:inputType="phone"
-        app:layout_constraintBottom_toTopOf="@+id/textViewCodi"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewTfn" />
-
-    <TextView
-        android:id="@+id/textViewCodi"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="82dp"
-        android:layout_marginTop="20dp"
-        android:layout_marginEnd="219dp"
-        android:text="Codi de validació:"
-        app:layout_constraintBottom_toTopOf="@+id/editTextCodi"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextTfn" />
-
-    <EditText
-        android:id="@+id/editTextCodi"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="80dp"
-        android:layout_marginEnd="80dp"
-        android:ems="10"
-        android:inputType="numberPassword"
-        app:layout_constraintBottom_toTopOf="@+id/registerButton"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textViewCodi" />
 
     <Button
         android:id="@+id/registerButton"
@@ -147,11 +120,11 @@
         android:layout_marginStart="145dp"
         android:layout_marginTop="50dp"
         android:layout_marginEnd="145dp"
-        android:layout_marginBottom="125dp"
+        android:layout_marginBottom="177dp"
         android:text="Registrar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextCodi" />
+        app:layout_constraintTop_toBottomOf="@+id/editTextTfn" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

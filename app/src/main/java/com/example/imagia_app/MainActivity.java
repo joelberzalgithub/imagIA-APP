@@ -28,10 +28,12 @@ import com.example.imagia_app.databinding.ActivityMainBinding;
 public class MainActivity extends AppCompatActivity {
     private static final String[] CAMERA_PERMISSION = new String[] { android.Manifest.permission.CAMERA };
     private static final int CAMERA_REQUEST_CODE = 10;
+    /*
     private long lastTime = 0;
     private float lastX, lastY, lastZ;
     private static final int SHAKE_THRESHOLD = 600;
     private static final int TIME_THRESHOLD = 100;
+    */
     private boolean isDoubleTapped = false;
     private GestureDetector gestureDetector;
 
@@ -56,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
         if (!hasCameraPermission()) {
             requestPermission();
         }
+        /*
         SensorEventListener sensorLnr = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent sensorEvent) {
@@ -95,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
         if (sensor != null) {
             sensorMgr.registerListener(sensorLnr, sensor, SensorManager.SENSOR_DELAY_NORMAL);
         }
-
+        */
         // Creem una nova instància pel Gesture Detector
         gestureDetector = new GestureDetector(this, new GestureListener());
     }

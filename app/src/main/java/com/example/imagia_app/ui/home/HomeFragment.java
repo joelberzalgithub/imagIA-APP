@@ -55,7 +55,8 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private TextToSpeech textToSpeech;
     private ImageCapture imageCapture;
-    private static final String urlNodeJsImatge = "http://192.168.17.139:3000/api/maria/image";
+    private static final String urlNodeJsImatge = "https://ams24.ieti.site/api/maria/image";
+    private StringBuilder completeResponse;
 
     @Nullable
     @Override
@@ -148,23 +149,28 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
         Preview preview = new Preview.Builder().build();
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
+        cameraProvider.unbindAll();
         CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis, imageCapture);
     }
 
     private void callToNodeJS(List<File> imageFiles) {
+        completeResponse = new StringBuilder();
         ExecutorService executor = Executors.newSingleThreadExecutor();
-
         executor.execute(() -> {
-            /*
             OkHttpClient client = new OkHttpClient.Builder()
                     .build();
 
             MultipartBody.Builder multipartBuilder = new MultipartBody.Builder().setType(MultipartBody.FORM);
 
             for (File file : imageFiles) {
-                multipartBuilder.addFormDataPart("file", file.getName(),
-                        RequestBody.create(file, MediaType.parse("application/octet-stream")));
+                if (file.exists()) {
+                    multipartBuilder.addFormDataPart("file", file.getName(),
+                            RequestBody.create(file, MediaType.parse("application/octet-stream")));
+                } else {
+                    Log.e("Error", "L'arxiu de la imatge no existeix");
+                }
+
             }
 
             multipartBuilder.addFormDataPart("prompt", "Please describe both images briefly")
@@ -190,7 +196,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
                     BufferedSource source = responseBody.source();
                     Buffer buffer = new Buffer();
                     long bytesRead;
-                    StringBuilder completeResponse = new StringBuilder();
+
                     while ((bytesRead = source.read(buffer, 8192)) != -1) {
                         // Process the chunk of data here
                         String chunkString = buffer.readUtf8();
@@ -200,7 +206,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
                         } else {
                             completeResponse.append(chunkString);
                         }
-                        Log.i("chunk", chunkString);
+                        Log.i("Chunk", chunkString);
                     }
 
                     // Tanquem el cos de la resposta quan haguem acabat de fer-lo servir
@@ -210,9 +216,9 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
             } catch (IOException | JSONException e) {
                 throw new RuntimeException(e);
             }
-            */
-            String test = "In the image, a large cow is hanging upside down from a wooden beam. In the second image, there's an animal lying on the side of a wall and another one hanging off a piece of wood with its belly facing the camera. The third image features two cows, one in the foreground and another further back, both appearing to be standing near a wall and possibly interacting with each other.";
-            textToSpeech.speak(test, TextToSpeech.QUEUE_FLUSH, null, null);
+            if (completeResponse != null) {
+                textToSpeech.speak(completeResponse, TextToSpeech.QUEUE_FLUSH, null, null);
+            }
         });
     }
 }
