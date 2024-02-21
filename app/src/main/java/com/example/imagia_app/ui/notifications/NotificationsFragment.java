@@ -1,7 +1,5 @@
 package com.example.imagia_app.ui.notifications;
 
-import android.annotation.SuppressLint;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -31,6 +29,7 @@ public class NotificationsFragment extends Fragment {
     private EditText editTextEmail;
     private EditText editTextNom;
     private EditText editTextTfn;
+    private static final String urlNodeJsRegister = "https://ams24.ieti.site/api/user/register";
 
     @Nullable
     @Override
@@ -64,51 +63,42 @@ public class NotificationsFragment extends Fragment {
                 Log.i("Usuari", content);
 
                 // Cridem a l'API
-                new NetworkTask().execute(content);
+                callToNodeJS(content);
             }
         });
 
         return view;
     }
 
-    @SuppressLint("StaticFieldLeak")
-    private static class NetworkTask extends AsyncTask<String, Void, Void> {
-        @Override
-        protected Void doInBackground(String... params) {
-            String content = params[0];
-            callToNodeJS(content);
-            return null;
-        }
+    private void callToNodeJS(String content) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            OkHttpClient client = new OkHttpClient().newBuilder()
+                    .build();
 
-        private static void callToNodeJS(String content) {
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            executor.execute(() -> {
-                OkHttpClient client = new OkHttpClient().newBuilder()
-                        .build();
+            MediaType mediaType = MediaType.parse("application/json");
 
-                MediaType mediaType = MediaType.parse("application/json");
+            RequestBody body = RequestBody.create(content, mediaType);
+            Log.i("Cos de la petició", body.toString());
 
-                RequestBody body = RequestBody.create(content, mediaType);
-                Log.i("Cos de la petició", body.toString());
+            Request request = new Request.Builder()
+                    .url(urlNodeJsRegister)
+                    .method("POST", body)
+                    .addHeader("Content-Type", "application/json")
+                    .build();
+            Log.i("Petició", String.valueOf(request));
 
-                Request request = new Request.Builder()
-                        .url("https://ams24.ieti.site/api/user/register")
-                        .method("POST", body)
-                        .addHeader("Content-Type", "application/json")
-                        .build();
-                Log.i("Petició", String.valueOf(request));
-
-                try {
-                    // Executem la petició
-                    Response response = client.newCall(request).execute();
-                    Log.i("Resposta", String.valueOf(response));
-                    if (!response.isSuccessful()) {
-                        throw new IOException("Unexpected code " + response);
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+            try {
+                // Executem la petició
+                Response response = client.newCall(request).execute();
+                Log.i("Resposta", String.valueOf(response));
+                if (!response.isSuccessful()) {
+                    throw new IOException("Unexpected code " + response);
                 }
-            });
-        }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
+
 }

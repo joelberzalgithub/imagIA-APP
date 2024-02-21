@@ -73,7 +73,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
 
                 if (getArguments() != null) {
                     if (getArguments().getBoolean("isDoubleTapped", false)) {
-                        captureImage();
+                        saveAndCaptureImage();
                     }
                 }
             } catch (ExecutionException | InterruptedException e) {
@@ -92,25 +92,32 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
         }
     }
 
-    private void captureImage() {
+    private void saveAndCaptureImage() {
+        File outputFile = getOutputFile();
+        if (outputFile != null) {
+            captureImage(outputFile);
+        } else {
+            Log.e("Error", "Failed to save image. Output file is null.");
+        }
+    }
+
+    private void captureImage(File outputFile) {
         // Configurem opcions per a la captura (p. ex., format, qualitat, etc.)
-        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(getOutputFile()).build();
+        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(outputFile).build();
         // Capturem la imatge
         imageCapture.takePicture(outputFileOptions, ContextCompat.getMainExecutor(requireContext()), new ImageCapture.OnImageSavedCallback() {
             @Override
             public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
                 // Obtenim la ruta de l'arxiu de la imatge
-                String imagePath = getOutputFile().getAbsolutePath();
+                String imagePath = outputFile.getAbsolutePath();
                 Log.i("INFO", "Ruta de la imatge: " + imagePath);
 
-                // Convertim la ruta de l'arxiu de la imatge en un objecte tipus File
-                File imageFile = new File(imagePath);
-                Log.i("INFO", imageFile.toString());
+                Log.i("INFO", outputFile.toString());
 
                 // Notifiquem a l'usuari que la imatge s'ha desat amb èxit
                 Toast.makeText(requireContext(), "La imatge s'ha desat amb èxit!", Toast.LENGTH_SHORT).show();
                 List<File> imatges = new ArrayList<>();
-                imatges.add(imageFile);
+                imatges.add(outputFile);
 
                 // Cridem a l'API
                 callToNodeJS(imatges);
@@ -156,6 +163,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
 
     private void callToNodeJS(List<File> imageFiles) {
         completeResponse = new StringBuilder();
+        completeResponse.append("");
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             OkHttpClient client = new OkHttpClient.Builder()
@@ -168,7 +176,8 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
                     multipartBuilder.addFormDataPart("file", file.getName(),
                             RequestBody.create(file, MediaType.parse("application/octet-stream")));
                 } else {
-                    Log.e("Error", "L'arxiu de la imatge no existeix");
+                    Log.e("Error", "L'arxiu de la imatge no existeix, abortant POST");
+                    return;
                 }
 
             }
@@ -216,7 +225,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
             } catch (IOException | JSONException e) {
                 throw new RuntimeException(e);
             }
-            if (completeResponse != null) {
+            if (!String.valueOf(completeResponse).equals("")) {
                 textToSpeech.speak(completeResponse, TextToSpeech.QUEUE_FLUSH, null, null);
             }
         });
