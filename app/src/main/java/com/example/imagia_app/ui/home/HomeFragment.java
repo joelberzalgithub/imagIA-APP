@@ -31,6 +31,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -222,9 +223,14 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
                     responseBody.close();
                     // Log.i("Missatge final", String.valueOf(completeResponse));
                 }
-            } catch (IOException | JSONException e) {
-                throw new RuntimeException(e);
+            } catch (JSONException e) {
+                Log.e("Error", "Timeout exception");
+            } catch (SocketTimeoutException e) {
+                Log.e("Error", "SocketTimeOut exception");
+            } catch (Exception e) {
+                Log.e("Error", "Something went wrong...");
             }
+
             if (!String.valueOf(completeResponse).equals("")) {
                 textToSpeech.speak(completeResponse, TextToSpeech.QUEUE_FLUSH, null, null);
             }
