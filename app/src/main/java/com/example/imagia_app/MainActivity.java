@@ -1,14 +1,26 @@
 package com.example.imagia_app;
 
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.imagia_app.ui.home.HomeFragment;
@@ -25,6 +37,16 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.example.imagia_app.databinding.ActivityMainBinding;
 
+import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 public class MainActivity extends AppCompatActivity {
     private static final String[] CAMERA_PERMISSION = new String[] { android.Manifest.permission.CAMERA };
     private static final int CAMERA_REQUEST_CODE = 10;
@@ -36,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
     */
     private boolean isDoubleTapped = false;
     private GestureDetector gestureDetector;
+    private AlertDialog dialog;
+    private EditText editTextTfn;
+    private EditText editTextNom;
+    private EditText editTextEmail;
+    private static final String urlNodeJsRegister = "https://ams24.ieti.site/api/user/register";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
         if (!hasCameraPermission()) {
             requestPermission();
         }
+
+        loginDialog();
         /*
         SensorEventListener sensorLnr = new SensorEventListener() {
             @Override
@@ -102,19 +131,23 @@ public class MainActivity extends AppCompatActivity {
         // Creem una nova instància pel Gesture Detector
         gestureDetector = new GestureDetector(this, new GestureListener());
     }
+
     // Retornem un booleà depenent si l'usuari ha donat permissos de càmara o no
     private boolean hasCameraPermission() {
         return ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
     }
+
     // Demanem permís per accedir a la càmara del dispositiu i poder fer l'anàlisi de la imatge
     private void requestPermission() {
         ActivityCompat.requestPermissions(this, CAMERA_PERMISSION, CAMERA_REQUEST_CODE);
     }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         // Passa l'event a la instància del Gesture Detector
         return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
     }
+
     private class GestureListener extends GestureDetector.SimpleOnGestureListener {
         @Override
         public boolean onDoubleTap(@NonNull MotionEvent e) {
@@ -128,5 +161,139 @@ public class MainActivity extends AppCompatActivity {
                     .commit();
             return true;
         }
+    }
+
+    @SuppressLint("SetTextI18n")
+    public void loginDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Registre d'usuari");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        TextView textView = new TextView(this);
+        textView.setText("Insereix el teu número de telèfon, el teu nickname i el teu correu electrònic per poder registrar-te.");
+        textView.setPadding(65, 65, 65, 55); // Add bottom margin
+        layout.addView(textView);
+
+        // Creem un EditText per inserir el número de telèfon de l'usuari
+        editTextTfn = new EditText(this);
+        editTextTfn.setHint("Número de telèfon");
+        editTextTfn.setInputType(InputType.TYPE_CLASS_PHONE);
+        LinearLayout.LayoutParams paramsTfn = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        paramsTfn.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        editTextTfn.setLayoutParams(paramsTfn);
+        layout.addView(editTextTfn);
+
+        // Creem un EditText per inserir el nickname de l'usuari
+        editTextNom = new EditText(this);
+        editTextNom.setHint("Nick Name");
+        LinearLayout.LayoutParams paramsNom = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        paramsNom.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        editTextNom.setLayoutParams(paramsNom);
+        layout.addView(editTextNom);
+
+        // Creem un EditText per inserir el correu electrònic de l'usuari
+        editTextEmail = new EditText(this);
+        editTextEmail.setHint("Correu electrònic");
+        editTextEmail.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        LinearLayout.LayoutParams paramsEmail = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        paramsEmail.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        editTextEmail.setLayoutParams(paramsEmail);
+        layout.addView(editTextEmail);
+
+        builder.setView(layout);
+        builder.setCancelable(false);
+
+        // Creem un botó de registre que per defecte estarà deshabilitat
+        builder.setPositiveButton("Registrar", null);
+        dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            Button button = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            button.setEnabled(false);
+
+            // Afegim TextChangeListeners als camps dels EditTexts
+            editTextTfn.addTextChangedListener(textWatcher);
+            editTextNom.addTextChangedListener(textWatcher);
+            editTextEmail.addTextChangedListener(textWatcher);
+
+            View.OnClickListener positiveClickListener = v -> {
+                // Obtenim les dades de l'usuari
+                String email = editTextEmail.getText().toString();
+                String nom = editTextNom.getText().toString();
+                String tfn = editTextTfn.getText().toString();
+
+                // Li assignem les dades corresponents al JSON de l'usuari
+                String content = "{\r\n    \"name\": \"VALUE_1\",\r\n    \"email\": \"VALUE_2\",\r\n    \"phone\": \"VALUE_3\"\r\n}";
+                content = content.replace("VALUE_1", nom)
+                        .replace("VALUE_2", email)
+                        .replace("VALUE_3", tfn);
+                Log.i("Usuari", content);
+
+                // Cridem a l'API
+                callToNodeJS(content);
+
+                // Tanquem l'interfície del Dialog
+                dialogInterface.dismiss();
+            };
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(positiveClickListener);
+        });
+        dialog.show();
+    }
+
+    // TextWatcher to enable/disable the register button based on EditText inputs
+    TextWatcher textWatcher = new TextWatcher() {
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {}
+        @Override
+        public void afterTextChanged(Editable s) {
+            // Enable register button only when all EditText fields have text
+            boolean enableButton = editTextTfn.getText().length() > 0 &&
+                    editTextNom.getText().length() > 0 &&
+                    editTextEmail.getText().length() > 0;
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(enableButton);
+        }
+    };
+
+    private void callToNodeJS(String content) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            OkHttpClient client = new OkHttpClient().newBuilder()
+                    .build();
+
+            MediaType mediaType = MediaType.parse("application/json");
+
+            RequestBody body = RequestBody.create(content, mediaType);
+            Log.i("Cos de la petició", body.toString());
+
+            Request request = new Request.Builder()
+                    .url(urlNodeJsRegister)
+                    .method("POST", body)
+                    .addHeader("Content-Type", "application/json")
+                    .build();
+            Log.i("Petició", String.valueOf(request));
+
+            try {
+                // Executem la petició
+                Response response = client.newCall(request).execute();
+                Log.i("Resposta", String.valueOf(response));
+                if (!response.isSuccessful()) {
+                    throw new IOException("Unexpected code " + response);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }
