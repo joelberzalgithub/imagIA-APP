@@ -15,6 +15,7 @@ import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -173,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
 
         TextView textView = new TextView(this);
         textView.setText("Insereix el teu número de telèfon, el teu nickname i el teu correu electrònic per poder registrar-te.");
-        textView.setPadding(65, 65, 65, 55); // Add bottom margin
+        textView.setPadding(65, 65, 65, 55);
         layout.addView(textView);
 
         // Creem un EditText per inserir el número de telèfon de l'usuari
@@ -184,7 +185,7 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        paramsTfn.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        paramsTfn.setMargins(65, 0, 65, 0);
         editTextTfn.setLayoutParams(paramsTfn);
         layout.addView(editTextTfn);
 
@@ -195,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        paramsNom.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        paramsNom.setMargins(65, 0, 65, 0);
         editTextNom.setLayoutParams(paramsNom);
         layout.addView(editTextNom);
 
@@ -207,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        paramsEmail.setMargins(65, 0, 65, 0); // left, top, right, bottom
+        paramsEmail.setMargins(65, 0, 65, 0);
         editTextEmail.setLayoutParams(paramsEmail);
         layout.addView(editTextEmail);
 
@@ -244,13 +245,58 @@ public class MainActivity extends AppCompatActivity {
 
                 // Tanquem l'interfície del Dialog
                 dialogInterface.dismiss();
+
+                // Obrim el Dialog de confirmació del registre d'usuari
+                loadingDialog();
             };
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(positiveClickListener);
         });
         dialog.show();
     }
 
-    // TextWatcher to enable/disable the register button based on EditText inputs
+    private void loadingDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+
+        View view = LayoutInflater.from(this).inflate(R.layout.loading_dialog, null);
+        builder.setView(view);
+        builder.setCancelable(false);
+
+        builder.create().show();
+    }
+
+    @SuppressLint("SetTextI18n")
+    public void smsDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Confirmació del registre d'usuari");
+
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+
+        TextView textView = new TextView(this);
+        textView.setText("Valida el teu número de telèfon inserint en el següent camp de text l'SMS que t'acabem d'enviar:");
+        textView.setPadding(65, 65, 65, 55);
+        layout.addView(textView);
+
+        EditText editTextSMS = new EditText(this);
+        editTextSMS.setHint("SMS");
+        LinearLayout.LayoutParams paramsSMS = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        paramsSMS.setMargins(65, 0, 65, 0);
+        editTextSMS.setLayoutParams(paramsSMS);
+        layout.addView(editTextSMS);
+
+        builder.setView(layout);
+        builder.setCancelable(false);
+
+        builder.setPositiveButton("Ok", (dialog, whichButton) -> {
+            dialog.dismiss();
+        });
+        builder.create().show();
+    }
+
+    // Habilitem o deshabilitem el botó de registre fent servir un TextWatcher
     TextWatcher textWatcher = new TextWatcher() {
         @Override
         public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -258,7 +304,7 @@ public class MainActivity extends AppCompatActivity {
         public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override
         public void afterTextChanged(Editable s) {
-            // Enable register button only when all EditText fields have text
+            // Comprovem que tots els EditTexts tinguin algun valor
             boolean enableButton = editTextTfn.getText().length() > 0 &&
                     editTextNom.getText().length() > 0 &&
                     editTextEmail.getText().length() > 0;
@@ -275,19 +321,16 @@ public class MainActivity extends AppCompatActivity {
             MediaType mediaType = MediaType.parse("application/json");
 
             RequestBody body = RequestBody.create(content, mediaType);
-            Log.i("Cos de la petició", body.toString());
 
             Request request = new Request.Builder()
                     .url(urlNodeJsRegister)
                     .method("POST", body)
                     .addHeader("Content-Type", "application/json")
                     .build();
-            Log.i("Petició", String.valueOf(request));
 
             try {
                 // Executem la petició
                 Response response = client.newCall(request).execute();
-                Log.i("Resposta", String.valueOf(response));
                 if (!response.isSuccessful()) {
                     throw new IOException("Unexpected code " + response);
                 }
