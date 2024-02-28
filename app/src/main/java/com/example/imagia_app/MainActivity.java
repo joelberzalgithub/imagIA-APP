@@ -38,10 +38,22 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.example.imagia_app.databinding.ActivityMainBinding;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -49,6 +61,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
+    public static String filesDir;
     private static final String[] CAMERA_PERMISSION = new String[] { android.Manifest.permission.CAMERA };
     private static final int CAMERA_REQUEST_CODE = 10;
     /*
@@ -60,13 +73,18 @@ public class MainActivity extends AppCompatActivity {
     private boolean isDoubleTapped = false;
     private GestureDetector gestureDetector;
     private AlertDialog dialog;
+    private AlertDialog dialogEspera;
+    private AlertDialog dialogSMS;
+
     private EditText editTextTfn;
     private EditText editTextNom;
     private EditText editTextEmail;
     private static final String urlNodeJsRegister = "https://ams24.ieti.site/api/user/register";
+    private static final String urlNodeJsValidate = "https://ams24.ieti.site/api/user/validate";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        filesDir = getFilesDir().getAbsolutePath();
         super.onCreate(savedInstanceState);
 
         com.example.imagia_app.databinding.ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -87,7 +105,10 @@ public class MainActivity extends AppCompatActivity {
             requestPermission();
         }
 
-        loginDialog();
+        if (getApiKey(new File(getFilesDir(), "api_token.json"))== null) {
+            loginDialog();
+        }
+
         /*
         SensorEventListener sensorLnr = new SensorEventListener() {
             @Override
@@ -240,14 +261,17 @@ public class MainActivity extends AppCompatActivity {
                         .replace("VALUE_3", tfn);
                 Log.i("Usuari", content);
 
-                // Cridem a l'API
-                callToNodeJS(content);
+                // Cridem a l'API i tanquem form
+                //dialogInterface.dismiss();
+
+                callToNodeJS(content, tfn);
+
 
                 // Tanquem l'interfície del Dialog
-                dialogInterface.dismiss();
+                //dialogInterface.dismiss();
 
                 // Obrim el Dialog de confirmació del registre d'usuari
-                loadingDialog();
+                //loadingDialog();
             };
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(positiveClickListener);
         });
@@ -261,11 +285,12 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(view);
         builder.setCancelable(false);
 
-        builder.create().show();
+        dialogEspera = builder.create();
+        dialogEspera.show();
     }
 
     @SuppressLint("SetTextI18n")
-    public void smsDialog() {
+    public void smsDialog(String phone) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Confirmació del registre d'usuari");
 
@@ -290,10 +315,18 @@ public class MainActivity extends AppCompatActivity {
         builder.setView(layout);
         builder.setCancelable(false);
 
-        builder.setPositiveButton("Ok", (dialog, whichButton) -> {
-            dialog.dismiss();
+        builder.setPositiveButton("Ok", null);
+        dialogSMS = builder.create();
+        dialogSMS.setOnShowListener(dialogInterface -> {
+            View.OnClickListener positiveClickListener = v -> {
+                String body = "{\n  \"number\": \"VALUE_1\",\n  \"phone\": \"VALUE_2\"\n}";
+                body = body.replace("VALUE_1", editTextSMS.getText().toString()).replace("VALUE_2", phone);
+                sendSmsToNode(body);
+            };
+            dialogSMS.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(positiveClickListener);
         });
-        builder.create().show();
+
+        dialogSMS.show();
     }
 
     // Habilitem o deshabilitem el botó de registre fent servir un TextWatcher
@@ -312,31 +345,160 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void callToNodeJS(String content) {
+    private void callToNodeJS(String content, String phoneNumber) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.execute(() -> {
+        executor.submit(() -> {
+            Log.i("info", "en funcion callNodeJS");
+
             OkHttpClient client = new OkHttpClient().newBuilder()
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(5, TimeUnit.SECONDS)
+                    .writeTimeout(5, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(false)
                     .build();
 
             MediaType mediaType = MediaType.parse("application/json");
-
-            RequestBody body = RequestBody.create(content, mediaType);
-
+            RequestBody body = RequestBody.create(content,mediaType);
             Request request = new Request.Builder()
                     .url(urlNodeJsRegister)
                     .method("POST", body)
                     .addHeader("Content-Type", "application/json")
                     .build();
-
+            Log.i("info", "en funcion after build");
+            Response response = null;
             try {
-                // Executem la petició
-                Response response = client.newCall(request).execute();
-                if (!response.isSuccessful()) {
-                    throw new IOException("Unexpected code " + response);
+                response = client.newCall(request).execute();
+                Log.i("info", "en funcion hasta execute");
+                if (response.isSuccessful()) {
+                    JSONObject responseJson = null;
+                    responseJson = new JSONObject(response.body().string());
+                    if (responseJson.getString("status").equals("OK")) {
+                        Log.i("info", "resposta positiva = " + responseJson.toString(4));
+                        dialog.dismiss();
+                        runOnUiThread(() -> {
+                            smsDialog(phoneNumber);
+                        });
+
+                    } else {
+                        runOnUiThread(() -> {
+                            Toast.makeText(this, "No se pudo registrar usuario", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+
                 }
+            } catch (SocketTimeoutException e) {
+                // Handle timeout exception
+                Log.e("error", "Timeout del server");
+            } catch (JSONException e) {
+                Log.e("error", "error del json");
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                Log.e("error", "No se pudo registrar usuario");
             }
+
         });
+        executor.shutdown();
+
+    }
+
+    private void sendSmsToNode(String content) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.submit(() -> {
+
+            OkHttpClient client = new OkHttpClient().newBuilder()
+                    .connectTimeout(5, TimeUnit.SECONDS)
+                    .readTimeout(5, TimeUnit.SECONDS)
+                    .writeTimeout(5, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(false)
+                    .build();
+
+            MediaType mediaType = MediaType.parse("application/json");
+            RequestBody body = RequestBody.create(content,mediaType);
+            Request request = new Request.Builder()
+                    .url(urlNodeJsValidate)
+                    .method("POST", body)
+                    .addHeader("Content-Type", "application/json")
+                    .build();
+            Log.i("info", "en funcion after build");
+            Response response = null;
+            try {
+                response = client.newCall(request).execute();
+                Log.i("info", "en funcion hasta execute");
+                if (response.isSuccessful()) {
+                    JSONObject responseJson = null;
+                    responseJson = new JSONObject(response.body().string());
+                    if (responseJson.getString("status").equals("OK")) {
+                        Log.i("info", "resposta positiva = " + responseJson.toString(4));
+                        dialogSMS.dismiss();
+                        String api_key = responseJson.getJSONObject("data").getString("api_key");
+                        Log.i("info success","El token es ="+api_key);
+                        saveApiKey(api_key);
+                    } else {
+                        Log.i("info","el codigo no es valid");
+                        runOnUiThread(() -> {
+                            Toast.makeText(this, "No se pudo validar usuario", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+
+                }
+            } catch (SocketTimeoutException e) {
+                // Handle timeout exception
+                Log.e("error", "Timeout del server");
+            } catch (JSONException e) {
+                Log.e("error", "error del json");
+            } catch (IOException e) {
+                Log.e("error", "No se pudo validar usuario");
+            }
+
+        });
+        executor.shutdown();
+
+    }
+
+    public void saveApiKey(String apiKey) {
+        String jsonString = "{\"api_key\": \"VALUE_1\"}".replace("VALUE_1", apiKey);
+        File jsonFile = new File(getFilesDir(), "api_token.json");
+        try {
+            // Create a FileOutputStream for the json file
+            FileOutputStream fos = new FileOutputStream(jsonFile);
+
+            // Write the JSON string to the file as bytes
+            fos.write(jsonString.getBytes());
+
+            // Close the FileOutputStream
+            fos.close();
+            Log.i("info", "token guardat");
+        } catch (IOException e) {
+            runOnUiThread(() -> {
+                Toast.makeText(this, "No s'ha pogut guardar el token", Toast.LENGTH_SHORT).show();
+            });
+        }
+    }
+
+    public static String getApiKey(File jsonFile) {
+
+        // Check if the file exists
+        if (!jsonFile.exists()) {
+            return null;
+        }
+
+        // Read the contents of the file
+        try (BufferedReader br = new BufferedReader(new FileReader(jsonFile))) {
+            StringBuilder jsonString = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                jsonString.append(line);
+            }
+
+            // Parse the JSON string and extract the value associated with "api_key"
+            JSONObject jsonObject = new JSONObject(jsonString.toString());
+            if (jsonObject.has("api_key")) {
+                return jsonObject.getString("api_key");
+            } else {
+                return null; // "api_key" key not found in JSON
+            }
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
+            return null; // Error occurred while reading or parsing JSON
+        }
     }
 }

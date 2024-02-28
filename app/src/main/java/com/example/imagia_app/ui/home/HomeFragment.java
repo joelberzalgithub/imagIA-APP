@@ -23,6 +23,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import com.example.imagia_app.MainActivity;
 import com.example.imagia_app.R;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -165,6 +166,12 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
     private void callToNodeJS(List<File> imageFiles) {
         completeResponse = new StringBuilder();
         completeResponse.append("");
+        String token = MainActivity.getApiKey(new File(MainActivity.filesDir, "api_token.json"));
+        if (token == null) {
+            Log.e("error", "no se pudo conseguir el token");
+            return;
+        }
+        Log.i("info", "token para imagen");
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             OkHttpClient client = new OkHttpClient.Builder()
@@ -184,7 +191,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
             }
 
             multipartBuilder.addFormDataPart("prompt", "Please describe both images briefly")
-                    .addFormDataPart("token", "123456789");
+                    .addFormDataPart("token", token);
 
             RequestBody body = multipartBuilder.build();
 
