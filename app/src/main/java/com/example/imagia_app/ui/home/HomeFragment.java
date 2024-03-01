@@ -90,7 +90,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
-            textToSpeech.setLanguage(Locale.US);
+            textToSpeech.setLanguage(new Locale("es", "ES"));
         }
     }
 
@@ -190,7 +190,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
 
             }
 
-            multipartBuilder.addFormDataPart("prompt", "Please describe both images briefly")
+            multipartBuilder.addFormDataPart("prompt", "Describe esta imagen en castellano")
                     .addFormDataPart("token", token);
 
             RequestBody body = multipartBuilder.build();
