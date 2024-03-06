@@ -171,7 +171,7 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
             Log.e("error", "no se pudo conseguir el token");
             return;
         }
-        Log.i("info", "token para imagen");
+        Log.i("info", "token para imagen "+token);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
             OkHttpClient client = new OkHttpClient.Builder()
@@ -203,6 +203,14 @@ public class HomeFragment extends Fragment implements TextToSpeech.OnInitListene
             try {
                 // Executem la petició
                 Response response = client.newCall(request).execute();
+                int codeResponse = response.code();
+                Log.i("info", "codigo peticions = "+ codeResponse);
+
+                if (codeResponse == 429) {
+                    Log.i("info", "too many requests");
+                    textToSpeech.speak("Se ha llegado a la quota máxima de peticiones", TextToSpeech.QUEUE_FLUSH, null, null);
+                }
+
                 if (!response.isSuccessful()) {
                     throw new IOException("Unexpected code " + response);
                 }
